@@ -1530,6 +1530,126 @@ fn test_verify_proof_all_same_hash_returns_false() {
     );
 }
 
+// ─── Issue #453: claim_for (operator-pays) ──────────────────────────────────
+
+/// Shared fixture for the `claim_for` tests: a two-leaf tree over
+/// (claimant, 1000) and (other, 500), initialised with 1500 tokens, plus a
+/// distinct `operator` address — neither the claimant nor a leaf in the
+/// tree — standing in for the third party that submits claims on the
+/// claimant's behalf.
+fn setup_claim_for() -> (
+    Env,
+    Address,
+    Address,
+    Address,
+    Address,
+    Address,
+    Vec<BytesN<32>>,
+) {
+    let (env, admin, token, contract_id) = setup();
+    let client = AirdropContractClient::new(&env, &contract_id);
+    let claimant = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let other = Address::generate(&env);
+
+    let (root, proof, _) = build_two_leaf_tree(&env, &contract_id, &claimant, 1000, &other, 500);
+
+    mint(&env, &token, &admin, &admin, 1500);
+    client.initialize(
+        &admin,
+        &token,
+        &root,
+        &1500,
+        &DEFAULT_EXPIRATION,
+        &None,
+        &None,
+    );
+
+    (env, admin, token, contract_id, claimant, operator, proof)
+}
+
+/// An operator (a different address) submits the claim; the claimant
+/// receives the tokens without ever signing.
+#[test]
+fn test_claim_for_success() {
+    let (env, _admin, token, contract_id, claimant, operator, proof) = setup_claim_for();
+    let client = AirdropContractClient::new(&env, &contract_id);
+
+    assert_ne!(operator, claimant);
+    assert_eq!(TokenClient::new(&env, &token).balance(&claimant), 0);
+
+    client.claim_for(&claimant, &1000, &proof);
+
+    // claim_for intentionally omits claimant.require_auth(): the claimant
+    // must not appear among the authorisations recorded for that call.
+    // (Checked first — later invocations replace the recorded auths.)
+    let auths = env.auths();
+    assert!(
+        auths.iter().all(|(addr, _)| addr != &claimant),
+        "claim_for must not require the claimant's authorisation"
+    );
+
+    assert_eq!(TokenClient::new(&env, &token).balance(&claimant), 1000);
+    assert!(client.is_claimed(&claimant));
+}
+
+/// The tokens land in the claimant's wallet, never the operator's: the
+/// operator's balance is exactly what it was before submitting.
+#[test]
+fn test_claim_for_tokens_go_to_claimant_not_operator() {
+    let (env, _admin, token, contract_id, claimant, operator, proof) = setup_claim_for();
+    let client = AirdropContractClient::new(&env, &contract_id);
+    let token_client = TokenClient::new(&env, &token);
+
+    let operator_before = token_client.balance(&operator);
+    let claimant_before = token_client.balance(&claimant);
+    assert_eq!(operator_before, 0);
+    assert_eq!(claimant_before, 0);
+
+    client.claim_for(&claimant, &1000, &proof);
+
+    assert_eq!(token_client.balance(&claimant), claimant_before + 1000);
+    assert_eq!(
+        token_client.balance(&operator),
+        operator_before,
+        "operator must never be credited for submitting a claim_for"
+    );
+    // The claimed amount came out of the contract's own balance.
+    assert_eq!(token_client.balance(&contract_id), 500);
+}
+
+/// A second claim_for for the same claimant is rejected with
+/// AlreadyClaimed, and moves no further tokens.
+#[test]
+fn test_claim_for_prevents_double_claim() {
+    let (env, _admin, token, contract_id, claimant, _operator, proof) = setup_claim_for();
+    let client = AirdropContractClient::new(&env, &contract_id);
+
+    client.claim_for(&claimant, &1000, &proof);
+    assert_eq!(TokenClient::new(&env, &token).balance(&claimant), 1000);
+
+    let result = client.try_claim_for(&claimant, &1000, &proof);
+    assert_eq!(result, Err(Ok(AirdropError::AlreadyClaimed)));
+
+    assert_eq!(TokenClient::new(&env, &token).balance(&claimant), 1000);
+}
+
+/// While the airdrop is paused, claim_for is rejected with NotActive,
+/// exactly like claim.
+#[test]
+fn test_claim_for_paused_fails() {
+    let (env, _admin, token, contract_id, claimant, _operator, proof) = setup_claim_for();
+    let client = AirdropContractClient::new(&env, &contract_id);
+
+    client.set_active(&false);
+
+    let result = client.try_claim_for(&claimant, &1000, &proof);
+    assert_eq!(result, Err(Ok(AirdropError::NotActive)));
+
+    assert!(!client.is_claimed(&claimant));
+    assert_eq!(TokenClient::new(&env, &token).balance(&claimant), 0);
+}
+
 // ─── Issue #50: Domain separation — cross-contract replay prevention ─────────
 
 /// A proof generated for contract A must NOT be accepted by contract B, even
@@ -2470,7 +2590,7 @@ fn test_claim_for_invalid_proof_fails() {
     let claimant = Address::generate(&env);
     let other = Address::generate(&env);
 
-    let (root, _, proof_other) =
+    let (root, proof_claimant, proof_other) =
         build_two_leaf_tree(&env, &contract_id, &claimant, 1000, &other, 500);
     mint(&env, &token, &admin, &admin, 1500);
     client.initialize(
@@ -2490,6 +2610,17 @@ fn test_claim_for_invalid_proof_fails() {
         Err(Ok(AirdropError::InvalidProof)),
         "claim_for with wrong proof must fail"
     );
+
+    // Issue #453: the claimant's own proof with a wrong amount in the call
+    // changes the leaf hash, so verification must fail the same way.
+    let result = client.try_claim_for(&claimant, &9999, &proof_claimant);
+    assert_eq!(
+        result,
+        Err(Ok(AirdropError::InvalidProof)),
+        "claim_for with wrong amount must fail"
+    );
+    assert!(!client.is_claimed(&claimant));
+    assert_eq!(TokenClient::new(&env, &token).balance(&claimant), 0);
 }
 
 // ─── Issue #471: claim_for after expiration ────────────────────────────────
