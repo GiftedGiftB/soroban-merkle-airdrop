@@ -216,6 +216,194 @@ After the admin successfully toggles the contract's active state. Not emitted if
 
 ---
 
+## `root_upd`
+
+Emitted by `update_merkle_root()`.
+
+### Topic
+
+```
+[ Symbol("root_upd"), Address(admin) ]
+```
+
+| Position | Type      | Description                                |
+|----------|-----------|--------------------------------------------|
+| 0        | `Symbol`  | Literal `"root_upd"`                      |
+| 1        | `Address` | The admin account that called `update_merkle_root()` |
+
+### Data
+
+```
+( BytesN<32>(new_root), i128(new_total) )
+```
+
+| Field       | Type         | Description                                                        |
+|-------------|--------------|--------------------------------------------------------------------|
+| `new_root`  | `BytesN<32>` | The new Merkle root now used to verify claims                      |
+| `new_total` | `i128`       | The new total deposited amount (in base units); the admin tops up or the contract adjusts the deposit by the difference |
+
+### When emitted
+
+After the new root and total are written to storage (and any required token top-up has been transferred in). Not emitted if the caller is not the admin or the contract is not initialized.
+
+### Example
+
+```json
+{
+  "type": "contract",
+  "ledger": 14000,
+  "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "topic": [
+    { "type": "symbol", "value": "root_upd" },
+    { "type": "address", "value": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" }
+  ],
+  "data": [
+    { "type": "bytes", "value": "f0e1d2c3b4a5...32bytes...hex" },
+    { "type": "i128", "value": "2000000000" }
+  ]
+}
+```
+
+---
+
+## `adm_xfer`
+
+Emitted by `transfer_admin()`.
+
+### Topic
+
+```
+[ Symbol("adm_xfer"), Address(old_admin) ]
+```
+
+| Position | Type      | Description                                |
+|----------|-----------|--------------------------------------------|
+| 0        | `Symbol`  | Literal `"adm_xfer"`                      |
+| 1        | `Address` | The admin account that called `transfer_admin()` (the previous admin) |
+
+### Data
+
+```
+Address(new_admin)
+```
+
+| Field       | Type      | Description                         |
+|-------------|-----------|-------------------------------------|
+| `new_admin` | `Address` | The account that is now the admin   |
+
+### When emitted
+
+After the admin role has been handed to `new_admin`. Not emitted if the caller is not the current admin.
+
+### Example
+
+```json
+{
+  "type": "contract",
+  "ledger": 15000,
+  "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "topic": [
+    { "type": "symbol", "value": "adm_xfer" },
+    { "type": "address", "value": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" }
+  ],
+  "data": { "type": "address", "value": "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN" }
+}
+```
+
+---
+
+## `upgrade`
+
+Emitted by `upgrade()`.
+
+### Topic
+
+```
+[ Symbol("upgrade"), Address(admin) ]
+```
+
+| Position | Type      | Description                                |
+|----------|-----------|--------------------------------------------|
+| 0        | `Symbol`  | Literal `"upgrade"`                       |
+| 1        | `Address` | The admin account that called `upgrade()` |
+
+### Data
+
+```
+BytesN<32>(new_wasm_hash)
+```
+
+| Field           | Type         | Description                                   |
+|-----------------|--------------|-----------------------------------------------|
+| `new_wasm_hash` | `BytesN<32>` | Hash of the WASM the contract was upgraded to |
+
+### When emitted
+
+After the contract's WASM has been replaced. Not emitted if the caller is not the admin.
+
+### Example
+
+```json
+{
+  "type": "contract",
+  "ledger": 16000,
+  "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "topic": [
+    { "type": "symbol", "value": "upgrade" },
+    { "type": "address", "value": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" }
+  ],
+  "data": { "type": "bytes", "value": "9f8e7d6c5b4a...32bytes...hex" }
+}
+```
+
+---
+
+## `exp_ext`
+
+Emitted by `extend_expiration()`.
+
+### Topic
+
+```
+[ Symbol("exp_ext"), Address(admin) ]
+```
+
+| Position | Type      | Description                                |
+|----------|-----------|--------------------------------------------|
+| 0        | `Symbol`  | Literal `"exp_ext"`                       |
+| 1        | `Address` | The admin account that called `extend_expiration()` |
+
+### Data
+
+```
+u64(new_expiration)
+```
+
+| Field            | Type  | Description                                              |
+|------------------|-------|----------------------------------------------------------|
+| `new_expiration` | `u64` | The new expiration timestamp (unix seconds)              |
+
+### When emitted
+
+After the new expiration is stored. Not emitted if the contract is not initialized or `new_expiration` is not strictly greater than the current expiration (`ExpirationInPast`).
+
+### Example
+
+```json
+{
+  "type": "contract",
+  "ledger": 17000,
+  "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  "topic": [
+    { "type": "symbol", "value": "exp_ext" },
+    { "type": "address", "value": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" }
+  ],
+  "data": { "type": "u64", "value": "1767225600" }
+}
+```
+
+---
+
 ## TypeScript event filtering
 
 The Stellar RPC `getEvents` endpoint lets you filter by contract ID and topic. The SDK exposes typed interfaces for all events (see `sdk/src/types.ts`).
@@ -242,7 +430,8 @@ const { events } = await rpc.getEvents({
 ### Parse events into typed objects
 
 ```typescript
-import type { AirdropEvent, InitEvent, ClaimedEvent, ReclaimedEvent, PausedEvent } from "@soroban-merkle-airdrop/sdk";
+import type { AirdropEvent, InitEvent, ClaimedEvent, ReclaimedEvent, PausedEvent,
+  RootUpdatedEvent, AdminTransferredEvent, UpgradeEvent, ExpirationExtendedEvent } from "@soroban-merkle-airdrop/sdk";
 
 function parseAirdropEvent(raw: any): AirdropEvent | null {
   const symbol = raw.topic[0]?.value as string;
@@ -283,6 +472,40 @@ function parseAirdropEvent(raw: any): AirdropEvent | null {
         active: (raw.value as any).value as boolean,
       };
       return { type: "paused", data };
+    }
+
+    case "root_upd": {
+      const [newRootRaw, newTotalRaw] = raw.value as any[];
+      const data: RootUpdatedEvent = {
+        admin: address,
+        newRoot: newRootRaw.value as string,
+        newTotal: BigInt(newTotalRaw.value),
+      };
+      return { type: "root_upd", data };
+    }
+
+    case "adm_xfer": {
+      const data: AdminTransferredEvent = {
+        oldAdmin: address,
+        newAdmin: (raw.value as any).value as string,
+      };
+      return { type: "adm_xfer", data };
+    }
+
+    case "upgrade": {
+      const data: UpgradeEvent = {
+        admin: address,
+        newWasmHash: (raw.value as any).value as string,
+      };
+      return { type: "upgrade", data };
+    }
+
+    case "exp_ext": {
+      const data: ExpirationExtendedEvent = {
+        admin: address,
+        newExpiration: BigInt((raw.value as any).value),
+      };
+      return { type: "exp_ext", data };
     }
 
     default:
@@ -332,3 +555,7 @@ const { events: claimEvents } = await rpc.getEvents({
 | `claimed`    | `claim`      | claimant  | `i128`                          |
 | `reclaimed`  | `reclaim`    | admin     | `(i128, u64)`                   |
 | `paused`     | `set_active` | admin     | `bool`                          |
+| `root_upd`   | `update_merkle_root` | admin | `(BytesN<32>, i128)`      |
+| `adm_xfer`   | `transfer_admin`     | old admin | `Address` (new admin) |
+| `upgrade`    | `upgrade`    | admin     | `BytesN<32>`                    |
+| `exp_ext`    | `extend_expiration` | admin | `u64`                        |

@@ -443,9 +443,67 @@ export interface PausedEvent {
   active: boolean;
 }
 
+/**
+ * Emitted by `update_merkle_root()`.
+ *
+ * Topic:  [Symbol("root_upd"), admin: Address]
+ * Data:   (new_root: BytesN<32>, new_total: i128)
+ */
+export interface RootUpdatedEvent {
+  /** The admin address that updated the root. */
+  admin: string;
+  /** The new Merkle root (hex). */
+  newRoot: string;
+  /** The new total deposited amount (in base units). */
+  newTotal: bigint;
+}
+
+/**
+ * Emitted by `transfer_admin()`.
+ *
+ * Topic:  [Symbol("adm_xfer"), old_admin: Address]
+ * Data:   new_admin: Address
+ */
+export interface AdminTransferredEvent {
+  /** The previous admin address. */
+  oldAdmin: string;
+  /** The new admin address. */
+  newAdmin: string;
+}
+
+/**
+ * Emitted by `upgrade()`.
+ *
+ * Topic:  [Symbol("upgrade"), admin: Address]
+ * Data:   new_wasm_hash: BytesN<32>
+ */
+export interface UpgradeEvent {
+  /** The admin address that performed the upgrade. */
+  admin: string;
+  /** Hash of the new WASM (hex). */
+  newWasmHash: string;
+}
+
+/**
+ * Emitted by `extend_expiration()`.
+ *
+ * Topic:  [Symbol("exp_ext"), admin: Address]
+ * Data:   new_expiration: u64
+ */
+export interface ExpirationExtendedEvent {
+  /** The admin address that extended the window. */
+  admin: string;
+  /** The new expiration (unix seconds). */
+  newExpiration: bigint;
+}
+
 /** Union of all events the airdrop contract can emit. */
 export type AirdropEvent =
   | { type: "init";      data: InitEvent     }
   | { type: "claimed";   data: ClaimedEvent  }
   | { type: "reclaimed"; data: ReclaimedEvent }
-  | { type: "paused";    data: PausedEvent   };
+  | { type: "paused";    data: PausedEvent   }
+  | { type: "root_upd";  data: RootUpdatedEvent }
+  | { type: "adm_xfer";  data: AdminTransferredEvent }
+  | { type: "upgrade";   data: UpgradeEvent  }
+  | { type: "exp_ext";   data: ExpirationExtendedEvent };
